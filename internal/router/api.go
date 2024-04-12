@@ -29,8 +29,11 @@ func UserBannerGet(w http.ResponseWriter, r *http.Request) {
 	featureId, featureErr := ValidateInt(r.URL.Query().Get("feature_id"))
 	tagId, tagErr := ValidateInt(r.URL.Query().Get("tag_id"))
 	// Проверка наличия параметров
+	var errorResponse models.ErrorResponse
 	if featureErr != nil || tagErr != nil {
-		http.Error(w, "tag_id and feature_id are required", http.StatusBadRequest)
+		errorResponse.Error = "tag_id and feature_id are required"
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 	isAdmin := false
@@ -42,10 +45,12 @@ func UserBannerGet(w http.ResponseWriter, r *http.Request) {
 	bannerContent, err := db.GetBannerForUser(featureId, tagId, useLastRevision, isAdmin)
 	if err != nil {
 		if strings.Contains(err.Error(), "no banner found") {
-			http.Error(w, "No banner found", http.StatusNotFound)
+			w.WriteHeader(http.StatusNotFound)
 		} else {
 			// Обработка других типов ошибок
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errorResponse.Error = err.Error()
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(errorResponse)
 		}
 		return
 	}
@@ -70,20 +75,24 @@ func BannersGet(w http.ResponseWriter, r *http.Request) {
 	featureId, featureErr := ValidateInt(r.URL.Query().Get("feature_id"))
 	tagId, tagErr := ValidateInt(r.URL.Query().Get("tag_id"))
 	// Проверка наличия параметров
+	var errorResponse models.ErrorResponse
 	if featureErr != nil && tagErr != nil {
-		http.Error(w, "At least one of feature_id or tag_id must be provided", http.StatusBadRequest)
+		errorResponse.Error = "At least one of feature_id or tag_id must be provided"
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 
 	// Получение баннеров из базы данных
 	banners, err := db.GetBanners(featureId, tagId, limit, offset)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponse.Error = err.Error()
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 	if len(banners) == 0 {
-		http.Error(w, "No banner found", http.StatusNotFound)
-		return
+		banners = []models.BannerExpanded{}
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -94,16 +103,21 @@ func BannersGet(w http.ResponseWriter, r *http.Request) {
 func BannerPost(w http.ResponseWriter, r *http.Request) {
 	// Получение параметров запроса
 	var banner models.BannerNoId
+	var errorResponse models.ErrorResponse
 	err := json.NewDecoder(r.Body).Decode(&banner)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		errorResponse.Error = err.Error()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
-	var response models.InlineResponse201
+	var response models.IdResponse
 	// Создание баннера в базе данных
 	response.BannerId, err = db.CreateBanner(banner)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponse.Error = err.Error()
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -115,35 +129,43 @@ func BannerIdPatch(w http.ResponseWriter, r *http.Request) {
 	// Получение параметров запроса
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-
+	var errorResponse models.ErrorResponse
 	if idStr == "" {
-		http.Error(w, "Banner Id is required", http.StatusBadRequest)
+		errorResponse.Error = "Banner Id is required"
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 
 	id, err := ValidateInt(idStr)
 	if err != nil {
-		http.Error(w, "Invalid banner Id", http.StatusBadRequest)
+		errorResponse.Error = "Invalid banner Id"
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 
 	var banner models.BannerNoId
 	err = json.NewDecoder(r.Body).Decode(&banner)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		errorResponse.Error = err.Error()
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 
 	exist, _ := db.BannerExists(*id)
 	if !exist {
-		http.Error(w, "Banner Id is not found", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	// Обновление баннера в базе данных
 	err = db.UpdateBanner(*id, banner)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponse.Error = err.Error()
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -154,28 +176,34 @@ func BannerIdDelete(w http.ResponseWriter, r *http.Request) {
 	// Получение параметров запроса
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-
+	var errorResponse models.ErrorResponse
 	if idStr == "" {
-		http.Error(w, "Banner Id is required", http.StatusBadRequest)
+		errorResponse.Error = "Banner Id is required"
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 
 	id, err := ValidateInt(idStr)
 	if err != nil {
-		http.Error(w, "Invalid banner Id", http.StatusBadRequest)
+		errorResponse.Error = "Invalid banner Id"
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 
 	exist, _ := db.BannerExists(*id)
 	if !exist {
-		http.Error(w, "Banner Id is not found", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	// Удаление баннера из базы данных
 	err = db.DeleteBanner(*id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponse.Error = err.Error()
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(errorResponse)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

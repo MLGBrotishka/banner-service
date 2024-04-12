@@ -12,11 +12,11 @@ func AuthMiddleware(check AccessCheckFunc) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("token")
 			if token == "" {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			if !check(r) {
-				http.Error(w, "Forbidden", http.StatusForbidden)
+				w.WriteHeader(http.StatusForbidden)
 				return
 			}
 			next.ServeHTTP(w, r)

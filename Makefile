@@ -25,7 +25,7 @@ clean:
 all: test build
 
 docker:
-	docker-compose -f ./build/docker-compose.yml up
+	docker-compose -f docker-compose.yml up
 
 env:
 	export $(cat .env | xargs) && rails c

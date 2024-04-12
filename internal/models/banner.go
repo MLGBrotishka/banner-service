@@ -16,7 +16,7 @@ type BannerExpanded struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
-type InlineResponse201 struct {
+type IdResponse struct {
 	// Идентификатор созданного баннера
 	BannerId int32 `json:"banner_id,omitempty"`
 }
@@ -36,6 +36,6 @@ type BannerNoId struct {
 	IsActive  bool     `json:"is_active,omitempty"`
 }
 
-type InlineResponse400 struct {
-	Error_ string `json:"error,omitempty"`
+type ErrorResponse struct {
+	Error string `json:"error,omitempty"`
 }
