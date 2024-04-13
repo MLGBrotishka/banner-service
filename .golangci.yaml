@@ -1,0 +1,11 @@
+linters:
+  enable:
+    - gofmt
+    - bodyclose
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+    - (*encoding/json.Encoder).Encode
+  gosimple:
+    checks: ["all"]

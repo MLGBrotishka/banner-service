@@ -7,12 +7,14 @@ services:
     env_file:
       - .env
     ports:
-      - 8080:8080
+      - ${APP_PORT}:${APP_PORT}
     restart: on-failure
     depends_on:
       - pg_db
+      - redis
     links: 
         - pg_db
+        - redis
     networks:
     - mynet
   pg_db:
@@ -27,7 +29,8 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_HOST=${DB_HOST}
     ports:
-      - 5432:5432
+      - ${DB_PORT}:${DB_PORT}
+    restart: on-failure
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -37,9 +40,23 @@ services:
         retries: 10
     networks:
     - mynet
+  redis:
+    container_name: redis
+    image: redis:alpine
+    command: redis-server --port ${CACHE_PORT} --requirepass ${CACHE_PASSWORD} --maxmemory ${CACHE_MAXMEM}
+    ports:
+      - ${CACHE_PORT}:${CACHE_PORT}
+    restart: on-failure
+    volumes: 
+      - redisdata:/data
+    networks:
+    - mynet
 
 volumes:
-  pgdata: {}
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
 
 networks:
   mynet:
