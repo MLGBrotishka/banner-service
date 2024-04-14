@@ -1,24 +1,27 @@
 version: '3.9'
 
 services:
-  go-app:
-    container_name: go-app
-    build: .
+  test_go-app:
+    container_name: test_go-app
+    build: 
+      context: ./
+      dockerfile: ./docker/tests/Dockerfile
     env_file:
-      - .env
+      - ./docker/tests/.env
     ports:
       - ${APP_PORT}:${APP_PORT}
-    restart: on-failure
     depends_on:
-      - pg_db
-      - redis
+      test_pg_db:
+        condition: service_healthy
+      test_redis:
+        condition: service_healthy
     links: 
-        - pg_db
-        - redis
+        - test_pg_db
+        - test_redis
     networks:
-    - mynet
-  pg_db:
-    container_name: pg_db
+    - test_net
+  test_pg_db:
+    container_name: test_pg_db
     image: postgres:13.3
     environment:
       - PGUSER=${DB_USER}
@@ -32,16 +35,16 @@ services:
       - ${DB_PORT}:${DB_PORT}
     restart: on-failure
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
-        test: ["CMD", "pg_isready", "--quiet"]
-        interval: 30s
-        timeout: 10s
-        retries: 10
+      test: ["CMD-SHELL", "pg_isready","--quiet","-d", "${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-    - mynet
-  redis:
-    container_name: redis
+    - test_net
+  test_redis:
+    container_name: test_redis
     image: redis:alpine
     command: redis-server --port ${CACHE_PORT} --requirepass ${CACHE_PASSWORD} --maxmemory ${CACHE_MAXMEM}
     ports:
@@ -49,15 +52,18 @@ services:
     restart: on-failure
     volumes: 
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
-    - mynet
+    - test_net
 
 volumes:
   pgdata:
-    driver: local
   redisdata:
-    driver: local
 
 networks:
-  mynet:
+  test_net:
     driver: bridge

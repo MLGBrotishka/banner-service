@@ -1,12 +1,23 @@
-APP_PATH=./myapp
-GO_MAIN_PATH=./cmd/main.go
+PROJECT_DIR = $(shell pwd)
+APP_NAME=myapp
+APP_PATH=$(PROJECT_DIR)/$(APP_NAME)
+GO_MAIN_PATH=$(PROJECT_DIR)/cmd/myapp/main.go
+
 BUILD_FLAGS=
 BUILD_DEPS=
 TEST_DEPS=
 
-PROJECT_DIR = $(shell pwd)
+DOCKER_PATH=$(PROJECT_DIR)/docker/server
+DOCKER_NAME=avito-backend
+ENV_FILE=$(DOCKER_PATH)/.env
+
+DOCKER_TEST_PATH=$(PROJECT_DIR)/docker/tests
+DOCKER_TEST_NAME=avito-backend-test
+ENV_TEST_FILE=$(DOCKER_TEST_PATH)/.env
+
+DOCKER_CMD=docker-compose --env-file $(ENV_FILE) -p $(DOCKER_NAME) --project-directory $(PROJECT_DIR) -f $(DOCKER_PATH)/docker-compose.yaml
+DOCKER_TEST_CMD=docker-compose --env-file $(ENV_TEST_FILE) -p $(DOCKER_TEST_NAME) --project-directory $(PROJECT_DIR) -f $(DOCKER_TEST_PATH)/docker-compose.yaml
 PROJECT_BIN = $(PROJECT_DIR)/bin
-$(shell [ -f bin ] || mkdir -p $(PROJECT_BIN))
 PATH := $(PROJECT_BIN):$(PATH)
 
 GOLANGCI_LINT = $(PROJECT_BIN)/golangci-lint
@@ -17,9 +28,9 @@ GOLANGCI_LINT = $(PROJECT_BIN)/golangci-lint
 build:
 	go build $(BUILD_FLAGS) -o $(APP_PATH) $(GO_MAIN_PATH) $(BUILD_DEPS)
 
-.PHONY: test
+.PHONY: test-fast
 test:
-	go test $(TEST_DEPS) ./...
+	go test $(PROJECT_DIR)/...
 
 .PHONY: tidy
 tidy:
@@ -29,10 +40,10 @@ tidy:
 run: build
 	$(APP_PATH)
 
-.PHONY: clen
+.PHONY: clean
 clean:
 	go clean
-	rm -f $(GO_MAIN_PATH)
+	rm -f $(APP_PATH)
 
 .PHONY: all
 all: test build
@@ -41,21 +52,33 @@ all: test build
 
 .PHONY: docker
 docker:
-	docker-compose -f docker-compose.yml up
+	$(DOCKER_CMD) up 
 
 .PHONY: docker-clear
 docker-clear:
-	docker-compose down --volumes
+	$(DOCKER_CMD) down --volumes
 
 .PHONY: docker-rebuild
 docker-rebuild:
-	docker-compose -f docker-compose.yml build
-	docker-compose -f docker-compose.yml up
+	$(DOCKER_CMD) build
+	$(DOCKER_CMD) up
+
+.PHONY: docker-test
+docker-test:
+	$(DOCKER_TEST_CMD) build
+	$(DOCKER_TEST_CMD) up --exit-code-from test_go-app
+	$(DOCKER_TEST_CMD) down --volumes
+
+.PHONY: docker-test-clear
+docker-test-clear:
+	$(DOCKER_TEST_CMD) down --volumes
+
 
 # Linter
 
 .PHONY: .install-linter
 .install-linter:
+	$(shell [ -f bin ] || mkdir -p $(PROJECT_BIN))
 	### INSTALL GOLANGCI-LINT ###
 	[ -f $(PROJECT_BIN)/golangci-lint ] || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(PROJECT_BIN) v1.46.2
 
@@ -71,4 +94,4 @@ lint-fast: .install-linter
 # Get env variables
 
 env:
-	export $(cat .env | xargs) && rails c
+	export $(grep -v '^#' docker/server/.env | xargs)

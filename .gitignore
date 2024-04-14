@@ -1,3 +1,3 @@
-myapp
+./myapp
 .env
 bin/golangci-lint

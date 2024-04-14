@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+  go-app:
+    container_name: go-app
+    build: 
+      context: ./
+      dockerfile: ./docker/server/Dockerfile
+    env_file:
+      - ./docker/server/.env
+    ports:
+      - ${APP_PORT}:${APP_PORT}
+    restart: on-failure
+    depends_on:
+      pg_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    links: 
+        - pg_db
+        - redis
+    networks:
+    - mynet
+  pg_db:
+    container_name: pg_db
+    image: postgres:13.3
+    environment:
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+      - PGDATABASE=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_HOST=${DB_HOST}
+    ports:
+      - ${DB_PORT}:${DB_PORT}
+    restart: on-failure
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready","--quiet","-d", "${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+    - mynet
+  redis:
+    container_name: redis
+    image: redis:alpine
+    command: redis-server --port ${CACHE_PORT} --requirepass ${CACHE_PASSWORD} --maxmemory ${CACHE_MAXMEM}
+    ports:
+      - ${CACHE_PORT}:${CACHE_PORT}
+    restart: on-failure
+    volumes: 
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+    - mynet
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+
+networks:
+  mynet:
+    driver: bridge
